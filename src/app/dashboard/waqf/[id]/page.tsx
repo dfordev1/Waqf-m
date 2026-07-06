@@ -1,6 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import {
+  addAsset,
+  addLease,
+  addCase,
+  addBeneficiary,
+  addDistribution,
+  addCampaign,
+  recordDonation,
+  addInvestment,
+} from "./actions";
+
+const inp = "rounded border border-neutral-300 p-2 text-sm";
+const btn =
+  "rounded bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600";
 
 const EVENT_LABELS: Record<string, string> = {
   creation: "🕌 Waqf created",
@@ -29,10 +43,13 @@ const EVENT_LABELS: Record<string, string> = {
 
 export default async function WaqfDetail({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { id } = await params;
+  const { error } = await searchParams;
   const supabase = await createClient();
 
   const { data: waqf } = await supabase
@@ -42,7 +59,7 @@ export default async function WaqfDetail({
     .single();
   if (!waqf) notFound();
 
-  const [records, assets, leases, cases, balances, beneficiaries] =
+  const [records, assets, leases, cases, balances, beneficiaries, campaigns] =
     await Promise.all([
       supabase
         .from("waqf_records")
@@ -54,6 +71,7 @@ export default async function WaqfDetail({
       supabase.from("cases").select("id, title, kind, status, court, limitation_deadline").eq("waqf_id", id),
       supabase.from("fund_balances").select("fund, account, balance").eq("waqf_id", id),
       supabase.from("beneficiaries").select("id, name, share_pct, is_fallback").eq("waqf_id", id).eq("active", true),
+      supabase.from("campaigns").select("id, title, status").eq("waqf_id", id),
     ]);
 
   return (
@@ -76,6 +94,12 @@ export default async function WaqfDetail({
           )}
         </p>
       </header>
+
+      {error && (
+        <p className="rounded border border-red-300 bg-red-50 p-2 text-sm text-red-700">
+          {error}
+        </p>
+      )}
 
       <div className="grid gap-8 md:grid-cols-2">
         <section className="space-y-2">
@@ -159,6 +183,175 @@ export default async function WaqfDetail({
           )}
         </section>
       </div>
+
+      <section className="space-y-2">
+        <h2 className="font-semibold">Actions</h2>
+        {[
+          {
+            label: "➕ Add asset",
+            action: addAsset,
+            fields: (
+              <>
+                <input name="name" required placeholder="Asset name" className={inp} />
+                <select name="kind" className={inp}>
+                  {["land", "building", "movable", "cash", "shares", "ip", "other"].map((k) => (
+                    <option key={k}>{k}</option>
+                  ))}
+                </select>
+                <input name="address" placeholder="Address" className={inp} />
+                <input name="area_sqm" type="number" placeholder="Area (sqm)" className={inp} />
+                <input name="current_valuation" type="number" placeholder="Valuation" className={inp} />
+                <input name="title_reference" placeholder="Title/deed ref" className={inp} />
+              </>
+            ),
+          },
+          {
+            label: "📝 New lease",
+            action: addLease,
+            fields: (
+              <>
+                <select name="asset_id" required className={inp}>
+                  {assets.data?.map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+                <input name="tenant_name" required placeholder="Tenant name" className={inp} />
+                <input name="tenant_contact" placeholder="Tenant contact" className={inp} />
+                <select name="status" className={inp}>
+                  <option value="draft">draft</option>
+                  <option value="active">active (writes chain event)</option>
+                </select>
+                <input name="starts_on" type="date" required className={inp} title="Start" />
+                <input name="ends_on" type="date" required className={inp} title="End" />
+                <input name="rent_amount" type="number" step="0.01" required placeholder="Rent amount" className={inp} />
+                <select name="frequency" className={inp}>
+                  <option>monthly</option><option>quarterly</option><option>yearly</option>
+                </select>
+                <input name="market_rent_benchmark" type="number" placeholder="Market rent (benchmark)" className={inp} />
+              </>
+            ),
+          },
+          {
+            label: "⚖️ File case",
+            action: addCase,
+            fields: (
+              <>
+                <input name="title" required placeholder="Case title" className={inp} />
+                <select name="kind" className={inp}>
+                  {["encroachment", "title_dispute", "tenancy", "succession", "regulatory", "other"].map((k) => (
+                    <option key={k}>{k}</option>
+                  ))}
+                </select>
+                <select name="asset_id" className={inp}>
+                  <option value="">(no asset)</option>
+                  {assets.data?.map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+                <input name="case_number" placeholder="Case number" className={inp} />
+                <input name="court" placeholder="Court" className={inp} />
+                <input name="counsel" placeholder="Counsel" className={inp} />
+                <input name="filed_on" type="date" className={inp} title="Filed on" />
+                <input name="limitation_deadline" type="date" className={inp} title="Limitation deadline" />
+              </>
+            ),
+          },
+          {
+            label: "👥 Add beneficiary",
+            action: addBeneficiary,
+            fields: (
+              <>
+                <input name="name" required placeholder="Beneficiary / class name" className={inp} />
+                <select name="kind" className={inp}>
+                  <option>class</option><option>person</option><option>organization</option>
+                </select>
+                <input name="share_pct" type="number" step="0.01" placeholder="Share %" className={inp} />
+                <label className="flex items-center gap-2 text-sm">
+                  <input name="is_fallback" type="checkbox" /> fallback (the poor)
+                </label>
+              </>
+            ),
+          },
+          {
+            label: "🤲 Record distribution",
+            action: addDistribution,
+            fields: (
+              <>
+                <select name="beneficiary_id" required className={inp}>
+                  {beneficiaries.data?.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+                <input name="amount" type="number" step="0.01" required placeholder="Amount" className={inp} />
+                <input name="memo" placeholder="Memo" className={inp} />
+              </>
+            ),
+          },
+          {
+            label: "💰 New campaign",
+            action: addCampaign,
+            fields: (
+              <>
+                <input name="title" required placeholder="Campaign title" className={inp} />
+                <select name="status" className={inp}>
+                  <option>draft</option><option>live</option>
+                </select>
+                <input name="goal_amount" type="number" placeholder="Goal amount" className={inp} />
+              </>
+            ),
+          },
+          {
+            label: "💝 Record donation",
+            action: recordDonation,
+            fields: (
+              <>
+                <select name="campaign_id" required className={inp}>
+                  {campaigns.data?.map((c) => (
+                    <option key={c.id} value={c.id}>{c.title}</option>
+                  ))}
+                </select>
+                <input name="donor_name" placeholder="Donor (blank = anonymous)" className={inp} />
+                <input name="amount" type="number" step="0.01" required placeholder="Amount" className={inp} />
+              </>
+            ),
+          },
+          {
+            label: "📈 New investment",
+            action: addInvestment,
+            fields: (
+              <>
+                <input name="name" required placeholder="Investment name" className={inp} />
+                <select name="kind" className={inp}>
+                  {["sukuk", "cwls", "equity", "islamic_deposit", "real_estate", "business", "other"].map((k) => (
+                    <option key={k}>{k}</option>
+                  ))}
+                </select>
+                <select name="status" className={inp}>
+                  <option value="proposed">proposed</option>
+                  <option value="active">active (requires screening)</option>
+                </select>
+                <input name="principal" type="number" step="0.01" required placeholder="Principal" className={inp} />
+                <input name="expected_yield_pct" type="number" step="0.01" placeholder="Expected yield %" className={inp} />
+                <label className="flex items-center gap-2 text-sm">
+                  <input name="shariah_screened" type="checkbox" /> Shariah screened
+                </label>
+              </>
+            ),
+          },
+        ].map(({ label, action, fields }) => (
+          <details key={label} className="rounded border border-neutral-200">
+            <summary className="cursor-pointer p-2 text-sm font-medium hover:bg-neutral-50">
+              {label}
+            </summary>
+            <form action={action} className="grid grid-cols-2 gap-2 p-3 md:grid-cols-3">
+              <input type="hidden" name="org_id" value={waqf.org_id} />
+              <input type="hidden" name="waqf_id" value={waqf.id} />
+              {fields}
+              <button className={btn}>Save</button>
+            </form>
+          </details>
+        ))}
+      </section>
 
       <section className="space-y-3">
         <h2 className="font-semibold">
