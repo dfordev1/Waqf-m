@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { recordHash, verifyAllSignatures } from "@/lib/waqfcore/crypto";
+import { rateLimit, tooMany } from "@/lib/ratelimit";
 
 // Re-verifies the full hash chain of a waqf, plus every Ed25519 signature
 // attached to each record. Works for anonymous callers on public waqfs, and
 // for org members on private ones — payload is read server-side only to
 // recompute hashes and is never included in the response.
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rl = rateLimit(req, "verify", 30);
+  if (!rl.ok) return tooMany(rl.retryAfter);
   const { id } = await params;
   const supabase = await createClient();
 

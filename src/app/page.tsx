@@ -31,6 +31,11 @@ export default function Home() {
       <p className="text-xs text-neutral-400">
         Registry &middot; Assets &amp; GIS &middot; Leases &amp; Litigation &middot; FAS 37 Accounting &middot; Cash Waqf &amp; Distributions &middot; Investments &middot; Bitcoin-Anchored Ledger
       </p>
+      <p className="text-xs text-neutral-300">
+        <Link href="/terms" className="hover:underline">Terms</Link>
+        {" · "}
+        <Link href="/privacy" className="hover:underline">Privacy</Link>
+      </p>
     </main>
   );
 }

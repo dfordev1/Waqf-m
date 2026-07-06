@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { signRecord, type SignerRole } from "@/lib/waqfcore/crypto";
+import { rateLimit, tooMany } from "@/lib/ratelimit";
 
 // POST { seq, sk, role, signer_name } — signs a specific chained record's
 // canonical payload with an Ed25519 private key and stores the signature.
@@ -11,6 +12,8 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rl = rateLimit(req, "sign", 15);
+  if (!rl.ok) return tooMany(rl.retryAfter);
   const { id } = await params;
   const { seq, sk, role, signer_name } = await req.json().catch(() => ({}));
   if (!seq || !sk || !role)

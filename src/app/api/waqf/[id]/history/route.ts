@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { rateLimit, tooMany } from "@/lib/ratelimit";
 
 // Public proof tier: event history (hashes only) for a public waqf.
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rl = rateLimit(req, "history", 60);
+  if (!rl.ok) return tooMany(rl.retryAfter);
   const { id } = await params;
   const supabase = await createClient();
   const { data, error } = await supabase
