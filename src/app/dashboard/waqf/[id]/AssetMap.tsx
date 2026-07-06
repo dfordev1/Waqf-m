@@ -35,7 +35,10 @@ export default function AssetMap({
 }) {
   const [drawing, setDrawing] = useState(false);
   const [points, setPoints] = useState<[number, number][]>([]);
-  const [targetAsset, setTargetAsset] = useState("");
+  // preselect when there's only one asset — the common case for new waqfs
+  const [targetAsset, setTargetAsset] = useState(
+    assets.length === 1 ? assets[0].id : ""
+  );
   const [msg, setMsg] = useState<string | null>(null);
 
   const center: LatLngExpression = assets.find((a) => a.boundary?.length)
@@ -47,24 +50,38 @@ export default function AssetMap({
 
   async function save() {
     if (!targetAsset || points.length < 3) {
-      setMsg("Pick an asset and place at least 3 points.");
+      setMsg("Pick an asset and place at least 3 points on the map.");
       return;
     }
     setMsg("Saving boundary…");
-    await onSaveBoundary(targetAsset, points);
-    setMsg("Saved. Reloading…");
-    setDrawing(false);
-    setPoints([]);
-    setTimeout(() => location.reload(), 600);
+    try {
+      await onSaveBoundary(targetAsset, points);
+      setMsg("Saved. Reloading…");
+      setDrawing(false);
+      setPoints([]);
+      setTimeout(() => location.reload(), 600);
+    } catch (e) {
+      setMsg(`Save failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
+
+  const noAssets = assets.length === 0;
 
   return (
     <div className="space-y-2">
+      {noAssets && (
+        <p className="rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-800">
+          This waqf has no assets yet, so there is nothing to draw a boundary
+          for. First add one with <strong>➕ Add asset</strong> in the Actions
+          section below, then come back to map its parcel.
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <select
           value={targetAsset}
           onChange={(e) => setTargetAsset(e.target.value)}
-          className="rounded border border-neutral-300 p-1.5"
+          disabled={noAssets}
+          className="rounded border border-neutral-300 p-1.5 disabled:opacity-50"
         >
           <option value="">Select asset to map…</option>
           {assets.map((a) => (
@@ -75,11 +92,20 @@ export default function AssetMap({
         </select>
         <button
           type="button"
+          disabled={noAssets || (!drawing && !targetAsset)}
+          title={
+            noAssets
+              ? "Add an asset first"
+              : !targetAsset
+                ? "Select which asset this boundary belongs to first"
+                : undefined
+          }
           onClick={() => {
             setDrawing((d) => !d);
             setPoints([]);
+            setMsg(null);
           }}
-          className="rounded border border-neutral-300 px-2 py-1.5 hover:bg-neutral-100"
+          className="rounded border border-neutral-300 px-2 py-1.5 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {drawing ? "Cancel drawing" : "Draw parcel boundary"}
         </button>
@@ -87,12 +113,20 @@ export default function AssetMap({
           <button
             type="button"
             onClick={save}
-            className="rounded bg-emerald-700 px-3 py-1.5 text-white hover:bg-emerald-600"
+            disabled={points.length < 3}
+            title={points.length < 3 ? "Click the map to place at least 3 points" : undefined}
+            className="rounded bg-emerald-700 px-3 py-1.5 text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Save boundary ({points.length} pts)
           </button>
         )}
-        {msg && <span className="text-xs text-neutral-500">{msg}</span>}
+        {msg && (
+          <span
+            className={`text-xs ${msg.startsWith("Saved") || msg.startsWith("Saving") ? "text-emerald-700" : "text-red-600"}`}
+          >
+            {msg}
+          </span>
+        )}
       </div>
 
       <div className="h-96 w-full overflow-hidden rounded border border-neutral-200">

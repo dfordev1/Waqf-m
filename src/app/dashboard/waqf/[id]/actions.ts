@@ -33,7 +33,9 @@ export async function saveAssetBoundary(
     p_asset: assetId,
     p_geojson: geojson,
   });
-  if (error) fail(waqfId, error.message);
+  // called imperatively from a client component — throw so the caller's
+  // catch can show the message inline instead of redirecting
+  if (error) throw new Error(error.message);
   await done(waqfId);
 }
 
