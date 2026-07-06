@@ -19,6 +19,24 @@ async function done(waqfId: string) {
   revalidatePath(`/dashboard/waqf/${waqfId}`);
 }
 
+export async function saveAssetBoundary(
+  assetId: string,
+  waqfId: string,
+  points: [number, number][]
+) {
+  const supabase = await createClient();
+  // GeoJSON ring must close (first point == last); lng/lat order.
+  const ring = points.map(([lat, lng]) => [lng, lat]);
+  ring.push(ring[0]);
+  const geojson = { type: "Polygon", coordinates: [ring] };
+  const { error } = await supabase.rpc("set_asset_boundary", {
+    p_asset: assetId,
+    p_geojson: geojson,
+  });
+  if (error) fail(waqfId, error.message);
+  await done(waqfId);
+}
+
 export async function addAsset(formData: FormData) {
   const { org_id, waqf_id } = ctx(formData);
   const supabase = await createClient();

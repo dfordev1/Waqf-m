@@ -13,6 +13,7 @@ import {
 } from "./actions";
 import SignPanel from "./SignPanel";
 import DeedUpload from "./DeedUpload";
+import MapSection from "./MapSection";
 
 const inp = "rounded border border-neutral-300 p-2 text-sm";
 const btn =
@@ -82,6 +83,20 @@ export default async function WaqfDetail({
     .eq("waqf_id", id)
     .order("created_at", { ascending: false });
 
+  const { data: assetsGeo } = await supabase
+    .from("assets_geo")
+    .select("id, name, status, boundary_geojson")
+    .eq("waqf_id", id);
+  const mapAssets = (assetsGeo ?? []).map((a) => ({
+    id: a.id,
+    name: a.name,
+    status: a.status,
+    boundary:
+      a.boundary_geojson?.type === "MultiPolygon"
+        ? a.boundary_geojson.coordinates[0][0]
+        : null,
+  }));
+
   const deedLinks = await Promise.all(
     (deeds ?? []).map(async (d) => {
       if (!d.storage_path) return { ...d, url: null as string | null };
@@ -132,6 +147,11 @@ export default async function WaqfDetail({
           {error}
         </p>
       )}
+
+      <section className="space-y-2">
+        <h2 className="font-semibold">Asset map</h2>
+        <MapSection waqfId={waqf.id} assets={mapAssets} />
+      </section>
 
       <div className="grid gap-8 md:grid-cols-2">
         <section className="space-y-2">
