@@ -28,7 +28,9 @@ export default function Home() {
           Public Explorer
         </Link>
       </div>
-      <p className="text-xs text-neutral-400">Phase 1 · Registry &amp; Assets</p>
+      <p className="text-xs text-neutral-400">
+        Registry &middot; Assets &amp; GIS &middot; Leases &amp; Litigation &middot; FAS 37 Accounting &middot; Cash Waqf &amp; Distributions &middot; Investments &middot; Bitcoin-Anchored Ledger
+      </p>
     </main>
   );
 }
