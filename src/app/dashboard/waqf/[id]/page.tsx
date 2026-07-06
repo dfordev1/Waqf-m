@@ -11,6 +11,7 @@ import {
   recordDonation,
   addInvestment,
 } from "./actions";
+import SignPanel from "./SignPanel";
 
 const inp = "rounded border border-neutral-300 p-2 text-sm";
 const btn =
@@ -63,7 +64,7 @@ export default async function WaqfDetail({
     await Promise.all([
       supabase
         .from("waqf_records")
-        .select("seq, event_type, payload, hash, recorded_at")
+        .select("id, seq, event_type, payload, hash, recorded_at")
         .eq("waqf_id", id)
         .order("seq", { ascending: false }),
       supabase.from("assets").select("id, name, kind, status, current_valuation, valuation_currency").eq("waqf_id", id),
@@ -73,6 +74,20 @@ export default async function WaqfDetail({
       supabase.from("beneficiaries").select("id, name, share_pct, is_fallback").eq("waqf_id", id).eq("active", true),
       supabase.from("campaigns").select("id, title, status").eq("waqf_id", id),
     ]);
+
+  const recordIds = (records.data ?? []).map((r) => r.id);
+  const { data: allSigs } = recordIds.length
+    ? await supabase
+        .from("record_signatures")
+        .select("record_id, signer_role, signer_name")
+        .in("record_id", recordIds)
+    : { data: [] as { record_id: string; signer_role: string; signer_name: string }[] };
+  const sigsByRecord = new Map<string, { signer_role: string; signer_name: string }[]>();
+  for (const s of allSigs ?? []) {
+    const arr = sigsByRecord.get(s.record_id) ?? [];
+    arr.push(s);
+    sigsByRecord.set(s.record_id, arr);
+  }
 
   return (
     <main className="mx-auto max-w-4xl space-y-8 p-8">
@@ -351,32 +366,46 @@ export default async function WaqfDetail({
             </form>
           </details>
         ))}
+        <SignPanel waqfId={waqf.id} />
       </section>
 
       <section className="space-y-3">
         <h2 className="font-semibold">
           Ledger of record — {records.data?.length ?? 0} chained events
         </h2>
+        <p className="text-xs text-neutral-400">
+          <Link href={`/api/waqf/${id}/verify`} className="text-emerald-700 hover:underline">
+            Verify the full chain + all Ed25519 signatures →
+          </Link>
+        </p>
         <ol className="relative space-y-4 border-l border-neutral-200 pl-6">
-          {records.data?.map((r) => (
-            <li key={r.seq} className="relative">
-              <span className="absolute -left-[1.85rem] top-1 h-3 w-3 rounded-full bg-emerald-600" />
-              <div className="text-sm font-medium">
-                {EVENT_LABELS[r.event_type] ?? r.event_type}
-                <span className="ml-2 text-xs font-normal text-neutral-400">
-                  #{r.seq} · {new Date(r.recorded_at).toLocaleString()}
-                </span>
-              </div>
-              <div className="font-mono text-xs text-neutral-400">
-                {r.hash.slice(0, 32)}…
-              </div>
-              {r.payload && Object.keys(r.payload).length > 0 && (
-                <pre className="mt-1 max-w-full overflow-x-auto rounded bg-neutral-50 p-2 text-xs text-neutral-600">
-                  {JSON.stringify(r.payload, null, 1)}
-                </pre>
-              )}
-            </li>
-          ))}
+          {records.data?.map((r) => {
+            const sigs = sigsByRecord.get(r.id) ?? [];
+            return (
+              <li key={r.seq} className="relative">
+                <span className="absolute -left-[1.85rem] top-1 h-3 w-3 rounded-full bg-emerald-600" />
+                <div className="text-sm font-medium">
+                  {EVENT_LABELS[r.event_type] ?? r.event_type}
+                  <span className="ml-2 text-xs font-normal text-neutral-400">
+                    #{r.seq} · {new Date(r.recorded_at).toLocaleString()}
+                  </span>
+                  {sigs.length > 0 && (
+                    <span className="ml-2 rounded bg-emerald-50 px-1.5 py-0.5 text-xs text-emerald-700">
+                      🔏 {sigs.map((s) => s.signer_role).join(", ")}
+                    </span>
+                  )}
+                </div>
+                <div className="font-mono text-xs text-neutral-400">
+                  {r.hash.slice(0, 32)}…
+                </div>
+                {r.payload && Object.keys(r.payload).length > 0 && (
+                  <pre className="mt-1 max-w-full overflow-x-auto rounded bg-neutral-50 p-2 text-xs text-neutral-600">
+                    {JSON.stringify(r.payload, null, 1)}
+                  </pre>
+                )}
+              </li>
+            );
+          })}
         </ol>
       </section>
     </main>
