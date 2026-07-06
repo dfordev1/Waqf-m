@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { CreateBatchButton, SubmitAnchorButton } from "./AnchorControls";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ type Batch = {
   record_count: number;
   anchored_at: string | null;
   created_at: string;
+  external_anchor: { calendars?: { calendar: string; ok: boolean }[] } | null;
 };
 
 export default async function Explorer() {
@@ -29,7 +31,7 @@ export default async function Explorer() {
     .limit(100);
   const { data: batches } = await supabase
     .from("anchor_batches_public")
-    .select("id, merkle_root, record_count, anchored_at, created_at")
+    .select("id, merkle_root, record_count, anchored_at, created_at, external_anchor")
     .order("created_at", { ascending: false })
     .limit(20);
 
@@ -75,15 +77,27 @@ export default async function Explorer() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Anchor batches</h2>
         <p className="text-xs text-neutral-400">
-          Records are periodically merkle-batched; the root is what gets
-          anchored externally (OpenTimestamps → Bitcoin).
+          Records are periodically merkle-batched; the root is submitted to
+          independent OpenTimestamps calendar servers, which upgrade the proof
+          to a Bitcoin block confirmation over time.
         </p>
+        <CreateBatchButton />
         {(batches as Batch[] | null)?.length ? (
           <ul className="space-y-1 text-xs font-mono">
             {(batches as Batch[]).map((b) => (
               <li key={b.id} className="rounded border border-neutral-200 p-2">
                 root {b.merkle_root.slice(0, 24)}… · {b.record_count} records ·{" "}
-                {b.anchored_at ? "anchored" : "pending anchor"}
+                {b.anchored_at ? (
+                  <span className="text-emerald-700">
+                    anchored {new Date(b.anchored_at).toLocaleString()} (
+                    {b.external_anchor?.calendars?.filter((c) => c.ok).length ?? 0} calendars)
+                  </span>
+                ) : (
+                  <>
+                    <span className="text-amber-700">pending anchor</span>
+                    <SubmitAnchorButton batchId={b.id} />
+                  </>
+                )}
               </li>
             ))}
           </ul>
