@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
@@ -6,9 +8,21 @@ export default function Home() {
         The end-to-end waqf management platform — registry, assets, governance,
         and a perpetual ledger of record. Built on AAOIFI standards.
       </p>
-      <div className="flex gap-3 text-sm text-neutral-400">
-        <span>Phase 1 · Registry &amp; Assets</span>
+      <div className="flex gap-3">
+        <Link
+          href="/login"
+          className="rounded bg-emerald-700 px-6 py-3 text-sm font-medium text-white hover:bg-emerald-600"
+        >
+          Sign in / Sign up
+        </Link>
+        <Link
+          href="/dashboard"
+          className="rounded border border-neutral-300 px-6 py-3 text-sm font-medium hover:bg-neutral-100"
+        >
+          Dashboard
+        </Link>
       </div>
+      <p className="text-xs text-neutral-400">Phase 1 · Registry &amp; Assets</p>
     </main>
   );
 }
