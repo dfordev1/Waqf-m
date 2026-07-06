@@ -10,6 +10,11 @@ import {
   addCampaign,
   recordDonation,
   addInvestment,
+  addRentInvoice,
+  markInvoicePaid,
+  addHearing,
+  updateCaseStatus,
+  addJournalEntry,
 } from "./actions";
 import SignPanel from "./SignPanel";
 import DeedUpload from "./DeedUpload";
@@ -71,11 +76,20 @@ export default async function WaqfDetail({
         .order("seq", { ascending: false }),
       supabase.from("assets").select("id, name, kind, status, current_valuation, valuation_currency").eq("waqf_id", id),
       supabase.from("leases").select("id, tenant_name, status, rent_amount, rent_currency, frequency, ends_on, market_rent_benchmark").eq("waqf_id", id),
-      supabase.from("cases").select("id, title, kind, status, court, limitation_deadline").eq("waqf_id", id),
+      supabase.from("cases").select("id, title, kind, status, court, limitation_deadline, hearings(id, hearing_on, outcome)").eq("waqf_id", id),
       supabase.from("fund_balances").select("fund, account, balance").eq("waqf_id", id),
       supabase.from("beneficiaries").select("id, name, share_pct, is_fallback").eq("waqf_id", id).eq("active", true),
       supabase.from("campaigns").select("id, title, status").eq("waqf_id", id),
     ]);
+
+  const leaseIds = (leases.data ?? []).map((l) => l.id);
+  const { data: invoices } = leaseIds.length
+    ? await supabase
+        .from("rent_invoices")
+        .select("id, lease_id, due_on, amount, currency, paid_at, payment_ref")
+        .in("lease_id", leaseIds)
+        .order("due_on")
+    : { data: [] as { id: string; lease_id: string; due_on: string; amount: number; currency: string; paid_at: string | null; payment_ref: string | null }[] };
 
   const { data: deeds } = await supabase
     .from("deeds")
@@ -186,6 +200,23 @@ export default async function WaqfDetail({
                     below market ({l.market_rent_benchmark})
                   </span>
                 )}
+                {(invoices ?? [])
+                  .filter((inv) => inv.lease_id === l.id)
+                  .map((inv) => (
+                    <div key={inv.id} className="ml-3 mt-1 flex items-center gap-2 text-xs">
+                      <span className={inv.paid_at ? "text-emerald-700" : "text-amber-700"}>
+                        {inv.paid_at ? "✓ paid" : "due"} {inv.due_on} · {inv.amount} {inv.currency}
+                      </span>
+                      {!inv.paid_at && (
+                        <form action={markInvoicePaid} className="inline">
+                          <input type="hidden" name="org_id" value={waqf.org_id} />
+                          <input type="hidden" name="waqf_id" value={waqf.id} />
+                          <input type="hidden" name="invoice_id" value={inv.id} />
+                          <button className="text-emerald-700 underline">mark paid</button>
+                        </form>
+                      )}
+                    </div>
+                  ))}
               </div>
             );
           })}
@@ -201,6 +232,26 @@ export default async function WaqfDetail({
                 {c.court ? ` · ${c.court}` : ""}
                 {c.limitation_deadline ? ` · limitation ${c.limitation_deadline}` : ""}
               </span>
+              {(c.hearings ?? []).map((h: { id: string; hearing_on: string; outcome: string | null }) => (
+                <div key={h.id} className="ml-3 mt-1 text-xs text-neutral-500">
+                  hearing {h.hearing_on}{h.outcome ? ` — ${h.outcome}` : ""}
+                </div>
+              ))}
+              {!["won", "lost", "settled", "withdrawn"].includes(c.status) && (
+                <form action={updateCaseStatus} className="ml-3 mt-1 flex items-center gap-1 text-xs">
+                  <input type="hidden" name="org_id" value={waqf.org_id} />
+                  <input type="hidden" name="waqf_id" value={waqf.id} />
+                  <input type="hidden" name="case_id" value={c.id} />
+                  <select name="status" className="rounded border border-neutral-300 p-1 text-xs">
+                    {["open", "hearing_scheduled", "stayed", "won", "lost", "settled", "withdrawn"].map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  <button className="rounded border border-neutral-300 px-2 py-1 hover:bg-neutral-100">
+                    update
+                  </button>
+                </form>
+              )}
             </div>
           ))}
         </section>
@@ -406,6 +457,59 @@ export default async function WaqfDetail({
                 <input name="expected_yield_pct" type="number" step="0.01" placeholder="Expected yield %" className={inp} />
                 <label className="flex items-center gap-2 text-sm">
                   <input name="shariah_screened" type="checkbox" /> Shariah screened
+                </label>
+              </>
+            ),
+          },
+          {
+            label: "🧾 New rent invoice",
+            action: addRentInvoice,
+            fields: (
+              <>
+                <select name="lease_id" required className={inp}>
+                  {leases.data?.map((l) => (
+                    <option key={l.id} value={l.id}>{l.tenant_name}</option>
+                  ))}
+                </select>
+                <input name="due_on" type="date" required className={inp} title="Due on" />
+                <input name="amount" type="number" step="0.01" required placeholder="Amount" className={inp} />
+              </>
+            ),
+          },
+          {
+            label: "📅 Schedule hearing",
+            action: addHearing,
+            fields: (
+              <>
+                <select name="case_id" required className={inp}>
+                  {cases.data?.map((c) => (
+                    <option key={c.id} value={c.id}>{c.title}</option>
+                  ))}
+                </select>
+                <input name="hearing_on" type="date" required className={inp} title="Hearing date" />
+                <input name="outcome" placeholder="Outcome (if known)" className={inp} />
+              </>
+            ),
+          },
+          {
+            label: "📒 New journal entry (FAS 37)",
+            action: addJournalEntry,
+            fields: (
+              <>
+                <input name="amount" type="number" step="0.01" required placeholder="Amount" className={inp} />
+                <select name="debit_fund" className={inp} title="Debit fund">
+                  <option value="corpus">debit: corpus</option>
+                  <option value="income">debit: income</option>
+                </select>
+                <input name="debit_account" required placeholder="Debit account (e.g. cash)" className={inp} />
+                <select name="credit_fund" className={inp} title="Credit fund">
+                  <option value="income">credit: income</option>
+                  <option value="corpus">credit: corpus</option>
+                </select>
+                <input name="credit_account" required placeholder="Credit account (e.g. rent_income)" className={inp} />
+                <input name="memo" required placeholder="Memo" className={inp} />
+                <label className="flex items-center gap-2 text-sm">
+                  <input name="non_compliant" type="checkbox" /> Shariah non-compliant (needs purification)
                 </label>
               </>
             ),
