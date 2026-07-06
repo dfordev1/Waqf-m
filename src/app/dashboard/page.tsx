@@ -100,7 +100,11 @@ export default async function Dashboard({
             <tbody>
               {(waqfs as Waqf[]).map((w) => (
                 <tr key={w.id} className="border-t border-neutral-200">
-                  <td className="p-2 font-medium">{w.name}</td>
+                  <td className="p-2 font-medium">
+                    <a href={`/dashboard/waqf/${w.id}`} className="text-emerald-700 hover:underline">
+                      {w.name}
+                    </a>
+                  </td>
                   <td className="p-2">{w.waqf_type}</td>
                   <td className="p-2">{w.tenure}</td>
                   <td className="p-2">{w.madhab}</td>
