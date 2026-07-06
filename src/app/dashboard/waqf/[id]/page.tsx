@@ -10,6 +10,7 @@ import {
   addCampaign,
   recordDonation,
   addInvestment,
+  addDevProject,
   addRentInvoice,
   markInvoicePaid,
   addHearing,
@@ -79,8 +80,13 @@ export default async function WaqfDetail({
       supabase.from("cases").select("id, title, kind, status, court, limitation_deadline, hearings(id, hearing_on, outcome)").eq("waqf_id", id),
       supabase.from("fund_balances").select("fund, account, balance").eq("waqf_id", id),
       supabase.from("beneficiaries").select("id, name, share_pct, is_fallback").eq("waqf_id", id).eq("active", true),
-      supabase.from("campaigns").select("id, title, status").eq("waqf_id", id),
+      supabase.from("campaigns").select("id, title, status, goal_amount, currency, donations(id, donor_name, amount, currency, status)").eq("waqf_id", id),
     ]);
+
+  const [investments, devProjects] = await Promise.all([
+    supabase.from("investments").select("id, name, kind, status, principal, currency, expected_yield_pct, shariah_screened").eq("waqf_id", id),
+    supabase.from("dev_projects").select("id, title, phase, budget, currency, financing_model").eq("waqf_id", id),
+  ]);
 
   const leaseIds = (leases.data ?? []).map((l) => l.id);
   const { data: invoices } = leaseIds.length
@@ -287,6 +293,57 @@ export default async function WaqfDetail({
         </section>
       </div>
 
+      <div className="grid gap-8 md:grid-cols-2">
+        <section className="space-y-2">
+          <h2 className="font-semibold">Campaigns &amp; donations ({campaigns.data?.length ?? 0})</h2>
+          {campaigns.data?.map((c) => (
+            <div key={c.id} className="rounded border border-neutral-200 p-2 text-sm">
+              <span className="font-medium">{c.title}</span>{" "}
+              <span className="text-neutral-400">
+                {c.status}
+                {c.goal_amount ? ` · goal ${c.goal_amount} ${c.currency}` : ""}
+              </span>
+              {(c.donations ?? []).map((d: { id: string; donor_name: string | null; amount: number; currency: string; status: string }) => (
+                <div key={d.id} className="ml-3 mt-1 text-xs text-neutral-500">
+                  {d.donor_name ?? "anonymous"} · {d.amount} {d.currency} · {d.status}
+                </div>
+              ))}
+            </div>
+          ))}
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-semibold">Investments ({investments.data?.length ?? 0})</h2>
+          {investments.data?.map((inv) => (
+            <div key={inv.id} className="rounded border border-neutral-200 p-2 text-sm">
+              <span className="font-medium">{inv.name}</span>{" "}
+              <span className="text-neutral-400">
+                {inv.kind} · {inv.status} · {inv.principal} {inv.currency}
+                {inv.expected_yield_pct ? ` · ${inv.expected_yield_pct}% yield` : ""}
+              </span>
+              {!inv.shariah_screened && (
+                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">
+                  unscreened
+                </span>
+              )}
+            </div>
+          ))}
+          <h2 className="pt-2 font-semibold">
+            Development projects ({devProjects.data?.length ?? 0})
+          </h2>
+          {devProjects.data?.map((p) => (
+            <div key={p.id} className="rounded border border-neutral-200 p-2 text-sm">
+              <span className="font-medium">{p.title}</span>{" "}
+              <span className="text-neutral-400">
+                {p.phase}
+                {p.financing_model ? ` · ${p.financing_model}` : ""}
+                {p.budget ? ` · budget ${p.budget} ${p.currency}` : ""}
+              </span>
+            </div>
+          ))}
+        </section>
+      </div>
+
       <section className="space-y-2">
         <h2 className="font-semibold">Deeds ({deedLinks.length})</h2>
         {deedLinks.map((d) => (
@@ -458,6 +515,28 @@ export default async function WaqfDetail({
                 <label className="flex items-center gap-2 text-sm">
                   <input name="shariah_screened" type="checkbox" /> Shariah screened
                 </label>
+              </>
+            ),
+          },
+          {
+            label: "🏗 New development project",
+            action: addDevProject,
+            fields: (
+              <>
+                <select name="asset_id" required className={inp}>
+                  {assets.data?.map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+                <input name="title" required placeholder="Project title" className={inp} />
+                <select name="phase" className={inp}>
+                  {["feasibility", "financing", "approval", "construction", "operational", "cancelled"].map((p) => (
+                    <option key={p}>{p}</option>
+                  ))}
+                </select>
+                <input name="financing_model" placeholder="Financing (BOT/sukuk/internal)" className={inp} />
+                <input name="budget" type="number" placeholder="Budget" className={inp} />
+                <input name="expected_annual_income" type="number" placeholder="Expected annual income" className={inp} />
               </>
             ),
           },

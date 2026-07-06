@@ -173,6 +173,23 @@ export async function addInvestment(formData: FormData) {
   await done(waqf_id);
 }
 
+export async function addDevProject(formData: FormData) {
+  const { org_id, waqf_id } = ctx(formData);
+  const supabase = await createClient();
+  const { error } = await supabase.from("dev_projects").insert({
+    org_id,
+    waqf_id,
+    asset_id: String(formData.get("asset_id")),
+    title: String(formData.get("title")),
+    phase: String(formData.get("phase")),
+    budget: Number(formData.get("budget")) || null,
+    financing_model: String(formData.get("financing_model")) || null,
+    expected_annual_income: Number(formData.get("expected_annual_income")) || null,
+  });
+  if (error) fail(waqf_id, error.message);
+  await done(waqf_id);
+}
+
 export async function addRentInvoice(formData: FormData) {
   const { org_id, waqf_id } = ctx(formData);
   const supabase = await createClient();
