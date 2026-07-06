@@ -12,6 +12,7 @@ import {
   addInvestment,
 } from "./actions";
 import SignPanel from "./SignPanel";
+import DeedUpload from "./DeedUpload";
 
 const inp = "rounded border border-neutral-300 p-2 text-sm";
 const btn =
@@ -74,6 +75,22 @@ export default async function WaqfDetail({
       supabase.from("beneficiaries").select("id, name, share_pct, is_fallback").eq("waqf_id", id).eq("active", true),
       supabase.from("campaigns").select("id, title, status").eq("waqf_id", id),
     ]);
+
+  const { data: deeds } = await supabase
+    .from("deeds")
+    .select("id, title, storage_path, content_sha256, language, executed_on, created_at")
+    .eq("waqf_id", id)
+    .order("created_at", { ascending: false });
+
+  const deedLinks = await Promise.all(
+    (deeds ?? []).map(async (d) => {
+      if (!d.storage_path) return { ...d, url: null as string | null };
+      const { data } = await supabase.storage
+        .from("deeds")
+        .createSignedUrl(d.storage_path, 300);
+      return { ...d, url: data?.signedUrl ?? null };
+    })
+  );
 
   const recordIds = (records.data ?? []).map((r) => r.id);
   const { data: allSigs } = recordIds.length
@@ -198,6 +215,26 @@ export default async function WaqfDetail({
           )}
         </section>
       </div>
+
+      <section className="space-y-2">
+        <h2 className="font-semibold">Deeds ({deedLinks.length})</h2>
+        {deedLinks.map((d) => (
+          <div key={d.id} className="rounded border border-neutral-200 p-2 text-sm">
+            <span className="font-medium">{d.title}</span>{" "}
+            {d.language ? <span className="text-neutral-400">· {d.language}</span> : null}
+            {d.executed_on ? <span className="text-neutral-400"> · executed {d.executed_on}</span> : null}
+            <div className="font-mono text-xs text-neutral-400">
+              sha256: {d.content_sha256?.slice(0, 32)}…
+            </div>
+            {d.url && (
+              <a href={d.url} className="text-xs text-emerald-700 hover:underline">
+                download (link expires in 5 min)
+              </a>
+            )}
+          </div>
+        ))}
+        <DeedUpload waqfId={waqf.id} orgId={waqf.org_id} />
+      </section>
 
       <section className="space-y-2">
         <h2 className="font-semibold">Actions</h2>
