@@ -68,45 +68,48 @@ export default async function WaqfDetail({
     .single();
   if (!waqf) notFound();
 
-  const [records, assets, leases, cases, balances, beneficiaries, campaigns] =
-    await Promise.all([
-      supabase
-        .from("waqf_records")
-        .select("id, seq, event_type, payload, hash, recorded_at")
-        .eq("waqf_id", id)
-        .order("seq", { ascending: false }),
-      supabase.from("assets").select("id, name, kind, status, current_valuation, valuation_currency").eq("waqf_id", id),
-      supabase.from("leases").select("id, tenant_name, status, rent_amount, rent_currency, frequency, ends_on, market_rent_benchmark").eq("waqf_id", id),
-      supabase.from("cases").select("id, title, kind, status, court, limitation_deadline, hearings(id, hearing_on, outcome)").eq("waqf_id", id),
-      supabase.from("fund_balances").select("fund, account, balance").eq("waqf_id", id),
-      supabase.from("beneficiaries").select("id, name, share_pct, is_fallback").eq("waqf_id", id).eq("active", true),
-      supabase.from("campaigns").select("id, title, status, goal_amount, currency, donations(id, donor_name, amount, currency, status)").eq("waqf_id", id),
-    ]);
-
-  const [investments, devProjects] = await Promise.all([
+  // one parallel batch — every extra sequential round trip costs a full
+  // app-server↔database RTT, which dominated page latency
+  const [
+    records,
+    assets,
+    leases,
+    cases,
+    balances,
+    beneficiaries,
+    campaigns,
+    investments,
+    devProjects,
+    deedsRes,
+    assetsGeoRes,
+  ] = await Promise.all([
+    supabase
+      .from("waqf_records")
+      .select("id, seq, event_type, payload, hash, recorded_at")
+      .eq("waqf_id", id)
+      .order("seq", { ascending: false }),
+    supabase.from("assets").select("id, name, kind, status, current_valuation, valuation_currency").eq("waqf_id", id),
+    supabase.from("leases").select("id, tenant_name, status, rent_amount, rent_currency, frequency, ends_on, market_rent_benchmark, rent_invoices(id, due_on, amount, currency, paid_at, payment_ref)").eq("waqf_id", id),
+    supabase.from("cases").select("id, title, kind, status, court, limitation_deadline, hearings(id, hearing_on, outcome)").eq("waqf_id", id),
+    supabase.from("fund_balances").select("fund, account, balance").eq("waqf_id", id),
+    supabase.from("beneficiaries").select("id, name, share_pct, is_fallback").eq("waqf_id", id).eq("active", true),
+    supabase.from("campaigns").select("id, title, status, goal_amount, currency, donations(id, donor_name, amount, currency, status)").eq("waqf_id", id),
     supabase.from("investments").select("id, name, kind, status, principal, currency, expected_yield_pct, shariah_screened").eq("waqf_id", id),
     supabase.from("dev_projects").select("id, title, phase, budget, currency, financing_model").eq("waqf_id", id),
+    supabase
+      .from("deeds")
+      .select("id, title, storage_path, content_sha256, language, executed_on, created_at")
+      .eq("waqf_id", id)
+      .order("created_at", { ascending: false }),
+    supabase.from("assets_geo").select("id, name, status, boundary_geojson").eq("waqf_id", id),
   ]);
 
-  const leaseIds = (leases.data ?? []).map((l) => l.id);
-  const { data: invoices } = leaseIds.length
-    ? await supabase
-        .from("rent_invoices")
-        .select("id, lease_id, due_on, amount, currency, paid_at, payment_ref")
-        .in("lease_id", leaseIds)
-        .order("due_on")
-    : { data: [] as { id: string; lease_id: string; due_on: string; amount: number; currency: string; paid_at: string | null; payment_ref: string | null }[] };
+  const invoices = (leases.data ?? []).flatMap((l) =>
+    (l.rent_invoices ?? []).map((inv: { id: string; due_on: string; amount: number; currency: string; paid_at: string | null; payment_ref: string | null }) => ({ ...inv, lease_id: l.id }))
+  );
 
-  const { data: deeds } = await supabase
-    .from("deeds")
-    .select("id, title, storage_path, content_sha256, language, executed_on, created_at")
-    .eq("waqf_id", id)
-    .order("created_at", { ascending: false });
-
-  const { data: assetsGeo } = await supabase
-    .from("assets_geo")
-    .select("id, name, status, boundary_geojson")
-    .eq("waqf_id", id);
+  const deeds = deedsRes.data;
+  const assetsGeo = assetsGeoRes.data;
   const mapAssets = (assetsGeo ?? []).map((a) => ({
     id: a.id,
     name: a.name,
@@ -117,23 +120,26 @@ export default async function WaqfDetail({
         : null,
   }));
 
-  const deedLinks = await Promise.all(
-    (deeds ?? []).map(async (d) => {
-      if (!d.storage_path) return { ...d, url: null as string | null };
-      const { data } = await supabase.storage
-        .from("deeds")
-        .createSignedUrl(d.storage_path, 300);
-      return { ...d, url: data?.signedUrl ?? null };
-    })
-  );
-
+  // second batch (depends on results of the first) — still one parallel wave
   const recordIds = (records.data ?? []).map((r) => r.id);
-  const { data: allSigs } = recordIds.length
-    ? await supabase
-        .from("record_signatures")
-        .select("record_id, signer_role, signer_name")
-        .in("record_id", recordIds)
-    : { data: [] as { record_id: string; signer_role: string; signer_name: string }[] };
+  const [deedLinks, sigsRes] = await Promise.all([
+    Promise.all(
+      (deeds ?? []).map(async (d) => {
+        if (!d.storage_path) return { ...d, url: null as string | null };
+        const { data } = await supabase.storage
+          .from("deeds")
+          .createSignedUrl(d.storage_path, 300);
+        return { ...d, url: data?.signedUrl ?? null };
+      })
+    ),
+    recordIds.length
+      ? supabase
+          .from("record_signatures")
+          .select("record_id, signer_role, signer_name")
+          .in("record_id", recordIds)
+      : Promise.resolve({ data: [] as { record_id: string; signer_role: string; signer_name: string }[] }),
+  ]);
+  const allSigs = sigsRes.data;
   const sigsByRecord = new Map<string, { signer_role: string; signer_name: string }[]>();
   for (const s of allSigs ?? []) {
     const arr = sigsByRecord.get(s.record_id) ?? [];
