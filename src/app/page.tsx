@@ -21,6 +21,12 @@ export default function Home() {
         >
           Dashboard
         </Link>
+        <Link
+          href="/explorer"
+          className="rounded border border-neutral-300 px-6 py-3 text-sm font-medium hover:bg-neutral-100"
+        >
+          Public Explorer
+        </Link>
       </div>
       <p className="text-xs text-neutral-400">Phase 1 · Registry &amp; Assets</p>
     </main>

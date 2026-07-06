@@ -1,0 +1,96 @@
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
+
+type PubWaqf = {
+  id: string;
+  name: string;
+  waqf_type: string;
+  tenure: string;
+  madhab: string;
+  created_at: string;
+};
+type Batch = {
+  id: string;
+  merkle_root: string;
+  record_count: number;
+  anchored_at: string | null;
+  created_at: string;
+};
+
+export default async function Explorer() {
+  const supabase = await createClient();
+  const { data: waqfs } = await supabase
+    .from("waqfs")
+    .select("id, name, waqf_type, tenure, madhab, created_at")
+    .eq("is_public", true)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  const { data: batches } = await supabase
+    .from("anchor_batches_public")
+    .select("id, merkle_root, record_count, anchored_at, created_at")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  return (
+    <main className="mx-auto max-w-4xl space-y-10 p-8">
+      <header>
+        <h1 className="text-2xl font-bold">Waqf‑M · Public Explorer</h1>
+        <p className="text-sm text-neutral-500">
+          Open registry of public waqfs. Every waqf has a verifiable hash
+          chain; anyone can audit it without trusting us.
+        </p>
+      </header>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Public waqfs</h2>
+        {(waqfs as PubWaqf[] | null)?.length ? (
+          <ul className="space-y-2">
+            {(waqfs as PubWaqf[]).map((w) => (
+              <li key={w.id} className="rounded border border-neutral-200 p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{w.name}</span>
+                  <span className="text-neutral-400">
+                    {w.waqf_type} · {w.tenure} · {w.madhab}
+                  </span>
+                </div>
+                <div className="mt-1 flex gap-4 text-xs">
+                  <Link className="text-emerald-700 hover:underline" href={`/api/waqf/${w.id}/history`}>
+                    event history
+                  </Link>
+                  <Link className="text-emerald-700 hover:underline" href={`/api/waqf/${w.id}/verify`}>
+                    verify chain
+                  </Link>
+                  <span className="text-neutral-400">id: {w.id}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-neutral-500">No public waqfs yet.</p>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Anchor batches</h2>
+        <p className="text-xs text-neutral-400">
+          Records are periodically merkle-batched; the root is what gets
+          anchored externally (OpenTimestamps → Bitcoin).
+        </p>
+        {(batches as Batch[] | null)?.length ? (
+          <ul className="space-y-1 text-xs font-mono">
+            {(batches as Batch[]).map((b) => (
+              <li key={b.id} className="rounded border border-neutral-200 p-2">
+                root {b.merkle_root.slice(0, 24)}… · {b.record_count} records ·{" "}
+                {b.anchored_at ? "anchored" : "pending anchor"}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-neutral-500">No batches yet.</p>
+        )}
+      </section>
+    </main>
+  );
+}
