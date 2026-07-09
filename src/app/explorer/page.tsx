@@ -103,7 +103,7 @@ export default async function Explorer() {
                   )}
                   {b.anchored_at && (
                     <>
-                      <Link className="text-emerald-700 hover:underline" href={`/api/anchor/${b.id}/bitcoin`}>
+                      <Link className="text-emerald-700 hover:underline" href={`/anchor/${b.id}`}>
                         verify on Bitcoin ↗
                       </Link>
                       <a className="text-emerald-700 hover:underline" href={`/chain/api/anchor/${b.id}/ots`}>
