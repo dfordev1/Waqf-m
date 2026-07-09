@@ -1,11 +1,12 @@
+import Link from "next/link";
 import { signIn, signUp } from "./actions";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; message?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, message } = await searchParams;
   return (
     <main className="flex min-h-screen items-center justify-center p-8">
       <div className="w-full max-w-sm space-y-6">
@@ -15,6 +16,11 @@ export default async function LoginPage({
             Sign in or create an account
           </p>
         </div>
+        {message && (
+          <p className="rounded border border-green-300 bg-green-50 p-2 text-sm text-green-700">
+            {message}
+          </p>
+        )}
         {error && (
           <p className="rounded border border-red-300 bg-red-50 p-2 text-sm text-red-700">
             {error}
@@ -51,6 +57,12 @@ export default async function LoginPage({
             </button>
           </div>
         </form>
+        <Link
+          href="/forgot-password"
+          className="block text-sm text-neutral-500 underline"
+        >
+          Forgot your password?
+        </Link>
       </div>
     </main>
   );
