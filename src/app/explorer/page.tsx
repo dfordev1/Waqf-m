@@ -85,19 +85,33 @@ export default async function Explorer() {
         {(batches as Batch[] | null)?.length ? (
           <ul className="space-y-1 text-xs font-mono">
             {(batches as Batch[]).map((b) => (
-              <li key={b.id} className="rounded border border-neutral-200 p-2">
-                root {b.merkle_root.slice(0, 24)}… · {b.record_count} records ·{" "}
-                {b.anchored_at ? (
-                  <span className="text-emerald-700">
-                    anchored {new Date(b.anchored_at).toLocaleString()} (
-                    {b.external_anchor?.calendars?.filter((c) => c.ok).length ?? 0} calendars)
-                  </span>
-                ) : (
-                  <>
-                    <span className="text-amber-700">pending anchor</span>
-                    <SubmitAnchorButton batchId={b.id} />
-                  </>
-                )}
+              <li key={b.id} className="space-y-1 rounded border border-neutral-200 p-2">
+                <div className="break-all">
+                  root {b.merkle_root} · {b.record_count} records
+                </div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  {b.anchored_at ? (
+                    <span className="text-emerald-700">
+                      anchored {new Date(b.anchored_at).toLocaleString()} (
+                      {b.external_anchor?.calendars?.filter((c) => c.ok).length ?? 0} calendars)
+                    </span>
+                  ) : (
+                    <>
+                      <span className="text-amber-700">pending anchor</span>
+                      <SubmitAnchorButton batchId={b.id} />
+                    </>
+                  )}
+                  {b.anchored_at && (
+                    <>
+                      <Link className="text-emerald-700 hover:underline" href={`/api/anchor/${b.id}/bitcoin`}>
+                        verify on Bitcoin ↗
+                      </Link>
+                      <a className="text-emerald-700 hover:underline" href={`/api/anchor/${b.id}/ots`}>
+                        download .ots proof
+                      </a>
+                    </>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
