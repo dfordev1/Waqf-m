@@ -11,7 +11,7 @@ export default function Shell({
   children,
 }: {
   variant?: "app" | "public";
-  active?: "dashboard" | "explorer" | "setup";
+  active?: "dashboard" | "explorer" | "setup" | "circle";
   width?: string;
   children: React.ReactNode;
 }) {
@@ -41,6 +41,7 @@ export default function Shell({
               <>
                 {link("/dashboard", "Dashboard", "dashboard")}
                 {link("/explorer", "Explorer", "explorer")}
+                {link("/circle", "Circle", "circle")}
                 {link("/setup", "Setup", "setup")}
                 <form action={signOut}>
                   <button className="rounded-md border border-line2 px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:border-ink hover:text-ink">
