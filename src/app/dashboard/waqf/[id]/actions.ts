@@ -4,11 +4,19 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-function ctx(formData: FormData) {
-  return {
-    org_id: String(formData.get("org_id")),
-    waqf_id: String(formData.get("waqf_id")),
-  };
+// Derive org_id from the waqf row itself (RLS-scoped lookup) rather than
+// trusting a hidden form field — prevents cross-org tampering where a member
+// of org A posts rows against org B's waqf.
+async function ctx(formData: FormData) {
+  const waqf_id = String(formData.get("waqf_id"));
+  const supabase = await createClient();
+  const { data: waqf } = await supabase
+    .from("waqfs")
+    .select("org_id")
+    .eq("id", waqf_id)
+    .single();
+  if (!waqf) fail(waqf_id, "Waqf not found or you don't have access to it.");
+  return { org_id: waqf.org_id as string, waqf_id };
 }
 
 function fail(waqfId: string, message: string): never {
@@ -40,7 +48,7 @@ export async function saveAssetBoundary(
 }
 
 export async function addAsset(formData: FormData) {
-  const { org_id, waqf_id } = ctx(formData);
+  const { org_id, waqf_id } = await ctx(formData);
   const supabase = await createClient();
   const { error } = await supabase.from("assets").insert({
     org_id,
@@ -57,7 +65,7 @@ export async function addAsset(formData: FormData) {
 }
 
 export async function addLease(formData: FormData) {
-  const { org_id, waqf_id } = ctx(formData);
+  const { org_id, waqf_id } = await ctx(formData);
   const supabase = await createClient();
   const { error } = await supabase.from("leases").insert({
     org_id,
@@ -78,7 +86,7 @@ export async function addLease(formData: FormData) {
 }
 
 export async function addCase(formData: FormData) {
-  const { org_id, waqf_id } = ctx(formData);
+  const { org_id, waqf_id } = await ctx(formData);
   const supabase = await createClient();
   const { error } = await supabase.from("cases").insert({
     org_id,
@@ -97,7 +105,7 @@ export async function addCase(formData: FormData) {
 }
 
 export async function addBeneficiary(formData: FormData) {
-  const { org_id, waqf_id } = ctx(formData);
+  const { org_id, waqf_id } = await ctx(formData);
   const supabase = await createClient();
   const { error } = await supabase.from("beneficiaries").insert({
     org_id,
@@ -112,7 +120,7 @@ export async function addBeneficiary(formData: FormData) {
 }
 
 export async function addDistribution(formData: FormData) {
-  const { org_id, waqf_id } = ctx(formData);
+  const { org_id, waqf_id } = await ctx(formData);
   const supabase = await createClient();
   const { error } = await supabase.from("distributions").insert({
     org_id,
@@ -127,7 +135,7 @@ export async function addDistribution(formData: FormData) {
 }
 
 export async function addCampaign(formData: FormData) {
-  const { org_id, waqf_id } = ctx(formData);
+  const { org_id, waqf_id } = await ctx(formData);
   const supabase = await createClient();
   const { error } = await supabase.from("campaigns").insert({
     org_id,
@@ -142,7 +150,7 @@ export async function addCampaign(formData: FormData) {
 }
 
 export async function recordDonation(formData: FormData) {
-  const { org_id, waqf_id } = ctx(formData);
+  const { org_id, waqf_id } = await ctx(formData);
   const supabase = await createClient();
   const { error } = await supabase.from("donations").insert({
     org_id,
@@ -158,7 +166,7 @@ export async function recordDonation(formData: FormData) {
 }
 
 export async function addInvestment(formData: FormData) {
-  const { org_id, waqf_id } = ctx(formData);
+  const { org_id, waqf_id } = await ctx(formData);
   const supabase = await createClient();
   const { error } = await supabase.from("investments").insert({
     org_id,
@@ -176,7 +184,7 @@ export async function addInvestment(formData: FormData) {
 }
 
 export async function addDevProject(formData: FormData) {
-  const { org_id, waqf_id } = ctx(formData);
+  const { org_id, waqf_id } = await ctx(formData);
   const supabase = await createClient();
   const { error } = await supabase.from("dev_projects").insert({
     org_id,
@@ -193,7 +201,7 @@ export async function addDevProject(formData: FormData) {
 }
 
 export async function addRentInvoice(formData: FormData) {
-  const { org_id, waqf_id } = ctx(formData);
+  const { org_id, waqf_id } = await ctx(formData);
   const supabase = await createClient();
   const { error } = await supabase.from("rent_invoices").insert({
     org_id,
@@ -218,7 +226,7 @@ export async function markInvoicePaid(formData: FormData) {
 }
 
 export async function addHearing(formData: FormData) {
-  const { org_id, waqf_id } = ctx(formData);
+  const { org_id, waqf_id } = await ctx(formData);
   const supabase = await createClient();
   const { error } = await supabase.from("hearings").insert({
     org_id,
@@ -242,7 +250,7 @@ export async function updateCaseStatus(formData: FormData) {
 }
 
 export async function addJournalEntry(formData: FormData) {
-  const { org_id, waqf_id } = ctx(formData);
+  const { org_id, waqf_id } = await ctx(formData);
   const supabase = await createClient();
   const debitFundKind = String(formData.get("debit_fund"));
   const debitAccount = String(formData.get("debit_account"));
