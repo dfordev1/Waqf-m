@@ -215,7 +215,7 @@ export async function addRentInvoice(formData: FormData) {
 }
 
 export async function markInvoicePaid(formData: FormData) {
-  const { waqf_id } = ctx(formData);
+  const { waqf_id } = await ctx(formData);
   const supabase = await createClient();
   const { error } = await supabase
     .from("rent_invoices")
@@ -239,7 +239,7 @@ export async function addHearing(formData: FormData) {
 }
 
 export async function updateCaseStatus(formData: FormData) {
-  const { waqf_id } = ctx(formData);
+  const { waqf_id } = await ctx(formData);
   const supabase = await createClient();
   const { error } = await supabase
     .from("cases")
