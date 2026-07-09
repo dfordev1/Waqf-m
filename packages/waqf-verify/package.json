@@ -1,0 +1,27 @@
+{
+  "name": "waqf-verify",
+  "version": "1.0.0",
+  "description": "Independently verify any Waqf-M waqf end-to-end — hash chain, Merkle inclusion, Bitcoin anchoring, and Ed25519 signatures. Trusts nothing of the server: all cryptographic checks run locally and Bitcoin is confirmed via OpenTimestamps.",
+  "type": "module",
+  "bin": {
+    "waqf-verify": "index.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "README.md"
+  ],
+  "keywords": ["waqf", "blockchain", "opentimestamps", "bitcoin", "merkle", "islamic-finance", "verification"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.2.0",
+    "opentimestamps": "^0.4.9"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dfordev1/Waqf-m",
+    "directory": "packages/waqf-verify"
+  }
+}
