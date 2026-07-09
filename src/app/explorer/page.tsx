@@ -106,7 +106,7 @@ export default async function Explorer() {
                       <Link className="text-emerald-700 hover:underline" href={`/api/anchor/${b.id}/bitcoin`}>
                         verify on Bitcoin ↗
                       </Link>
-                      <a className="text-emerald-700 hover:underline" href={`/api/anchor/${b.id}/ots`}>
+                      <a className="text-emerald-700 hover:underline" href={`/chain/api/anchor/${b.id}/ots`}>
                         download .ots proof
                       </a>
                     </>
