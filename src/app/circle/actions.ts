@@ -34,11 +34,24 @@ export async function createPost(formData: FormData) {
   if (!body) redirect(`/circle?error=${encodeURIComponent("Write something first.")}`);
 
   const { error } = await supabase.from("circle_posts").insert({ author: user.id, body });
-  if (error) {
-    const msg = /row-level security/i.test(error.message)
-      ? "Join the circle (create your profile) before posting."
-      : error.message;
-    redirect(`/circle?error=${encodeURIComponent(msg)}`);
-  }
+  if (error) redirect(`/circle?error=${encodeURIComponent(error.message)}`);
   revalidatePath("/circle");
+}
+
+export async function sendMessage(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const recipient = String(formData.get("recipient"));
+  const body = String(formData.get("body") || "").trim();
+  if (!body) redirect(`/circle/dm/${recipient}?error=${encodeURIComponent("Write a message first.")}`);
+
+  const { error } = await supabase
+    .from("circle_messages")
+    .insert({ sender: user.id, recipient, body });
+  if (error) redirect(`/circle/dm/${recipient}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(`/circle/dm/${recipient}`);
 }
