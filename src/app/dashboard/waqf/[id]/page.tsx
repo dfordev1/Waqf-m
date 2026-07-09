@@ -20,10 +20,14 @@ import {
 import SignPanel from "./SignPanel";
 import DeedUpload from "./DeedUpload";
 import MapSection from "./MapSection";
+import Shell, { Alert } from "@/components/Shell";
 
-const inp = "rounded border border-neutral-300 p-2 text-sm";
+const inp =
+  "rounded-md border border-line2 bg-white px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/25";
 const btn =
-  "rounded bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600";
+  "rounded-md bg-gold px-4 py-2 text-sm font-semibold text-goldink transition-colors hover:bg-golddark";
+const sectionCard = "rounded-[10px] border border-line bg-white p-5";
+const h2Cls = "mb-3 text-[13px] font-bold uppercase tracking-[0.12em]";
 
 const EVENT_LABELS: Record<string, string> = {
   creation: "🕌 Waqf created",
@@ -148,19 +152,27 @@ export default async function WaqfDetail({
   }
 
   return (
-    <main className="mx-auto max-w-4xl space-y-8 p-8">
-      <header className="space-y-1">
-        <Link href="/dashboard" className="text-xs text-neutral-400 hover:underline">
+    <Shell variant="app" active="dashboard">
+      <div className="space-y-8">
+      <header>
+        <Link href="/dashboard" className="text-xs text-faint hover:text-ink hover:underline">
           ← Dashboard
         </Link>
-        <h1 className="text-2xl font-bold">{waqf.name}</h1>
-        <p className="text-sm text-neutral-500">
-          {waqf.waqf_type} · {waqf.tenure} · {waqf.madhab} · founded by{" "}
-          {waqf.waqif_name}
+        <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.28em] text-gold">
+          Waqf record
+        </div>
+        <h1 className="mt-1 font-serif-display text-3xl tracking-tight">{waqf.name}</h1>
+        <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-muted">
+          {[waqf.waqf_type, waqf.tenure, waqf.madhab].map((t: string) => (
+            <span key={t} className="rounded-full border border-line bg-white px-2.5 py-0.5 text-xs">
+              {t}
+            </span>
+          ))}
+          <span className="ml-1">founded by {waqf.waqif_name}</span>
           {waqf.is_public && (
             <>
-              {" · "}
-              <Link href={`/api/waqf/${id}/verify`} className="text-emerald-700 hover:underline">
+              <span className="text-faint">·</span>
+              <Link href={`/api/waqf/${id}/verify`} className="font-medium text-verify hover:underline">
                 verify chain publicly
               </Link>
             </>
@@ -168,24 +180,20 @@ export default async function WaqfDetail({
         </p>
       </header>
 
-      {error && (
-        <p className="rounded border border-red-300 bg-red-50 p-2 text-sm text-red-700">
-          {error}
-        </p>
-      )}
+      {error && <Alert kind="error">{error}</Alert>}
 
-      <section className="space-y-2">
-        <h2 className="font-semibold">Asset map</h2>
+      <section className={`${sectionCard} space-y-2`}>
+        <h2 className={h2Cls}>Asset map</h2>
         <MapSection waqfId={waqf.id} assets={mapAssets} />
       </section>
 
       <div className="grid gap-8 md:grid-cols-2">
-        <section className="space-y-2">
-          <h2 className="font-semibold">Assets ({assets.data?.length ?? 0})</h2>
+        <section className={`${sectionCard} space-y-2`}>
+          <h2 className={h2Cls}>Assets ({assets.data?.length ?? 0})</h2>
           {assets.data?.map((a) => (
-            <div key={a.id} className="rounded border border-neutral-200 p-2 text-sm">
+            <div key={a.id} className="rounded-md border border-line p-3 text-sm">
               <span className="font-medium">{a.name}</span>{" "}
-              <span className="text-neutral-400">
+              <span className="text-faint">
                 {a.kind} ·{" "}
                 <span className={a.status === "encroached" || a.status === "under_litigation" ? "text-red-600" : ""}>
                   {a.status}
@@ -196,15 +204,15 @@ export default async function WaqfDetail({
           ))}
         </section>
 
-        <section className="space-y-2">
-          <h2 className="font-semibold">Leases ({leases.data?.length ?? 0})</h2>
+        <section className={`${sectionCard} space-y-2`}>
+          <h2 className={h2Cls}>Leases ({leases.data?.length ?? 0})</h2>
           {leases.data?.map((l) => {
             const under =
               l.market_rent_benchmark && Number(l.rent_amount) < Number(l.market_rent_benchmark);
             return (
-              <div key={l.id} className="rounded border border-neutral-200 p-2 text-sm">
+              <div key={l.id} className="rounded-md border border-line p-3 text-sm">
                 <span className="font-medium">{l.tenant_name}</span>{" "}
-                <span className="text-neutral-400">
+                <span className="text-faint">
                   {l.rent_amount} {l.rent_currency}/{l.frequency} · {l.status} · until {l.ends_on}
                 </span>
                 {under && (
@@ -216,7 +224,7 @@ export default async function WaqfDetail({
                   .filter((inv) => inv.lease_id === l.id)
                   .map((inv) => (
                     <div key={inv.id} className="ml-3 mt-1 flex items-center gap-2 text-xs">
-                      <span className={inv.paid_at ? "text-emerald-700" : "text-amber-700"}>
+                      <span className={inv.paid_at ? "text-verify" : "text-amber-700"}>
                         {inv.paid_at ? "✓ paid" : "due"} {inv.due_on} · {inv.amount} {inv.currency}
                       </span>
                       {!inv.paid_at && (
@@ -224,7 +232,7 @@ export default async function WaqfDetail({
                           <input type="hidden" name="org_id" value={waqf.org_id} />
                           <input type="hidden" name="waqf_id" value={waqf.id} />
                           <input type="hidden" name="invoice_id" value={inv.id} />
-                          <button className="text-emerald-700 underline">mark paid</button>
+                          <button className="text-verify underline">mark paid</button>
                         </form>
                       )}
                     </div>
@@ -234,18 +242,18 @@ export default async function WaqfDetail({
           })}
         </section>
 
-        <section className="space-y-2">
-          <h2 className="font-semibold">Cases ({cases.data?.length ?? 0})</h2>
+        <section className={`${sectionCard} space-y-2`}>
+          <h2 className={h2Cls}>Cases ({cases.data?.length ?? 0})</h2>
           {cases.data?.map((c) => (
-            <div key={c.id} className="rounded border border-neutral-200 p-2 text-sm">
+            <div key={c.id} className="rounded-md border border-line p-3 text-sm">
               <span className="font-medium">{c.title}</span>{" "}
-              <span className="text-neutral-400">
+              <span className="text-faint">
                 {c.kind} · {c.status}
                 {c.court ? ` · ${c.court}` : ""}
                 {c.limitation_deadline ? ` · limitation ${c.limitation_deadline}` : ""}
               </span>
               {(c.hearings ?? []).map((h: { id: string; hearing_on: string; outcome: string | null }) => (
-                <div key={h.id} className="ml-3 mt-1 text-xs text-neutral-500">
+                <div key={h.id} className="ml-3 mt-1 text-xs text-muted">
                   hearing {h.hearing_on}{h.outcome ? ` — ${h.outcome}` : ""}
                 </div>
               ))}
@@ -254,12 +262,12 @@ export default async function WaqfDetail({
                   <input type="hidden" name="org_id" value={waqf.org_id} />
                   <input type="hidden" name="waqf_id" value={waqf.id} />
                   <input type="hidden" name="case_id" value={c.id} />
-                  <select name="status" className="rounded border border-neutral-300 p-1 text-xs">
+                  <select name="status" className="rounded border border-line2 p-1 text-xs">
                     {["open", "hearing_scheduled", "stayed", "won", "lost", "settled", "withdrawn"].map((s) => (
                       <option key={s} value={s}>{s}</option>
                     ))}
                   </select>
-                  <button className="rounded border border-neutral-300 px-2 py-1 hover:bg-neutral-100">
+                  <button className="rounded border border-line2 px-2 py-1 hover:bg-white">
                     update
                   </button>
                 </form>
@@ -268,12 +276,12 @@ export default async function WaqfDetail({
           ))}
         </section>
 
-        <section className="space-y-2">
-          <h2 className="font-semibold">
+        <section className={`${sectionCard} space-y-2`}>
+          <h2 className={h2Cls}>
             Beneficiaries ({beneficiaries.data?.length ?? 0}) &amp; Funds
           </h2>
           {beneficiaries.data?.map((b) => (
-            <div key={b.id} className="rounded border border-neutral-200 p-2 text-sm">
+            <div key={b.id} className="rounded-md border border-line p-3 text-sm">
               {b.name}
               {b.share_pct ? ` · ${b.share_pct}%` : ""}
               {b.is_fallback ? " · fallback" : ""}
@@ -283,7 +291,7 @@ export default async function WaqfDetail({
             <table className="w-full text-xs">
               <tbody>
                 {balances.data.map((f, i) => (
-                  <tr key={i} className="border-t border-neutral-100">
+                  <tr key={i} className="border-t border-line">
                     <td className="p-1 font-mono">{f.fund}</td>
                     <td className="p-1">{f.account}</td>
                     <td className="p-1 text-right font-mono">{f.balance}</td>
@@ -292,7 +300,7 @@ export default async function WaqfDetail({
               </tbody>
             </table>
           ) : (
-            <p className="text-xs text-neutral-400">
+            <p className="text-xs text-faint">
               corpus &amp; income funds ready — no journal entries yet
             </p>
           )}
@@ -300,17 +308,17 @@ export default async function WaqfDetail({
       </div>
 
       <div className="grid gap-8 md:grid-cols-2">
-        <section className="space-y-2">
-          <h2 className="font-semibold">Campaigns &amp; donations ({campaigns.data?.length ?? 0})</h2>
+        <section className={`${sectionCard} space-y-2`}>
+          <h2 className={h2Cls}>Campaigns &amp; donations ({campaigns.data?.length ?? 0})</h2>
           {campaigns.data?.map((c) => (
-            <div key={c.id} className="rounded border border-neutral-200 p-2 text-sm">
+            <div key={c.id} className="rounded-md border border-line p-3 text-sm">
               <span className="font-medium">{c.title}</span>{" "}
-              <span className="text-neutral-400">
+              <span className="text-faint">
                 {c.status}
                 {c.goal_amount ? ` · goal ${c.goal_amount} ${c.currency}` : ""}
               </span>
               {(c.donations ?? []).map((d: { id: string; donor_name: string | null; amount: number; currency: string; status: string }) => (
-                <div key={d.id} className="ml-3 mt-1 text-xs text-neutral-500">
+                <div key={d.id} className="ml-3 mt-1 text-xs text-muted">
                   {d.donor_name ?? "anonymous"} · {d.amount} {d.currency} · {d.status}
                 </div>
               ))}
@@ -318,12 +326,12 @@ export default async function WaqfDetail({
           ))}
         </section>
 
-        <section className="space-y-2">
-          <h2 className="font-semibold">Investments ({investments.data?.length ?? 0})</h2>
+        <section className={`${sectionCard} space-y-2`}>
+          <h2 className={h2Cls}>Investments ({investments.data?.length ?? 0})</h2>
           {investments.data?.map((inv) => (
-            <div key={inv.id} className="rounded border border-neutral-200 p-2 text-sm">
+            <div key={inv.id} className="rounded-md border border-line p-3 text-sm">
               <span className="font-medium">{inv.name}</span>{" "}
-              <span className="text-neutral-400">
+              <span className="text-faint">
                 {inv.kind} · {inv.status} · {inv.principal} {inv.currency}
                 {inv.expected_yield_pct ? ` · ${inv.expected_yield_pct}% yield` : ""}
               </span>
@@ -334,13 +342,13 @@ export default async function WaqfDetail({
               )}
             </div>
           ))}
-          <h2 className="pt-2 font-semibold">
+          <h2 className={`pt-4 ${h2Cls}`}>
             Development projects ({devProjects.data?.length ?? 0})
           </h2>
           {devProjects.data?.map((p) => (
-            <div key={p.id} className="rounded border border-neutral-200 p-2 text-sm">
+            <div key={p.id} className="rounded-md border border-line p-3 text-sm">
               <span className="font-medium">{p.title}</span>{" "}
-              <span className="text-neutral-400">
+              <span className="text-faint">
                 {p.phase}
                 {p.financing_model ? ` · ${p.financing_model}` : ""}
                 {p.budget ? ` · budget ${p.budget} ${p.currency}` : ""}
@@ -350,18 +358,18 @@ export default async function WaqfDetail({
         </section>
       </div>
 
-      <section className="space-y-2">
-        <h2 className="font-semibold">Deeds ({deedLinks.length})</h2>
+      <section className={`${sectionCard} space-y-2`}>
+        <h2 className={h2Cls}>Deeds ({deedLinks.length})</h2>
         {deedLinks.map((d) => (
-          <div key={d.id} className="rounded border border-neutral-200 p-2 text-sm">
+          <div key={d.id} className="rounded-md border border-line p-3 text-sm">
             <span className="font-medium">{d.title}</span>{" "}
-            {d.language ? <span className="text-neutral-400">· {d.language}</span> : null}
-            {d.executed_on ? <span className="text-neutral-400"> · executed {d.executed_on}</span> : null}
-            <div className="font-mono text-xs text-neutral-400">
+            {d.language ? <span className="text-faint">· {d.language}</span> : null}
+            {d.executed_on ? <span className="text-faint"> · executed {d.executed_on}</span> : null}
+            <div className="font-mono text-xs text-faint">
               sha256: {d.content_sha256?.slice(0, 32)}…
             </div>
             {d.url && (
-              <a href={d.url} className="text-xs text-emerald-700 hover:underline">
+              <a href={d.url} className="text-xs text-verify hover:underline">
                 download (link expires in 5 min)
               </a>
             )}
@@ -370,8 +378,8 @@ export default async function WaqfDetail({
         <DeedUpload waqfId={waqf.id} orgId={waqf.org_id} />
       </section>
 
-      <section className="space-y-2">
-        <h2 className="font-semibold">Actions</h2>
+      <section className={`${sectionCard} space-y-2`}>
+        <h2 className={h2Cls}>Actions</h2>
         {[
           {
             label: "➕ Add asset",
@@ -600,8 +608,8 @@ export default async function WaqfDetail({
             ),
           },
         ].map(({ label, action, fields }) => (
-          <details key={label} className="rounded border border-neutral-200">
-            <summary className="cursor-pointer p-2 text-sm font-medium hover:bg-neutral-50">
+          <details key={label} className="rounded-md border border-line bg-ivory/40">
+            <summary className="cursor-pointer p-2 text-sm font-medium hover:bg-ivory">
               {label}
             </summary>
             <form action={action} className="grid grid-cols-2 gap-2 p-3 md:grid-cols-3">
@@ -615,37 +623,37 @@ export default async function WaqfDetail({
         <SignPanel waqfId={waqf.id} />
       </section>
 
-      <section className="space-y-3">
-        <h2 className="font-semibold">
+      <section className={`${sectionCard} space-y-3`}>
+        <h2 className={h2Cls}>
           Ledger of record — {records.data?.length ?? 0} chained events
         </h2>
-        <p className="text-xs text-neutral-400">
-          <Link href={`/api/waqf/${id}/verify`} className="text-emerald-700 hover:underline">
+        <p className="text-xs text-faint">
+          <Link href={`/api/waqf/${id}/verify`} className="text-verify hover:underline">
             Verify the full chain + all Ed25519 signatures →
           </Link>
         </p>
-        <ol className="relative space-y-4 border-l border-neutral-200 pl-6">
+        <ol className="relative space-y-4 border-l border-line pl-6">
           {records.data?.map((r) => {
             const sigs = sigsByRecord.get(r.id) ?? [];
             return (
               <li key={r.seq} className="relative">
-                <span className="absolute -left-[1.85rem] top-1 h-3 w-3 rounded-full bg-emerald-600" />
+                <span className="absolute -left-[1.85rem] top-1 h-3 w-3 rounded-full bg-verify" />
                 <div className="text-sm font-medium">
                   {EVENT_LABELS[r.event_type] ?? r.event_type}
-                  <span className="ml-2 text-xs font-normal text-neutral-400">
+                  <span className="ml-2 text-xs font-normal text-faint">
                     #{r.seq} · {new Date(r.recorded_at).toLocaleString()}
                   </span>
                   {sigs.length > 0 && (
-                    <span className="ml-2 rounded bg-emerald-50 px-1.5 py-0.5 text-xs text-emerald-700">
+                    <span className="ml-2 rounded bg-emerald-50 px-1.5 py-0.5 text-xs text-verify">
                       🔏 {sigs.map((s) => s.signer_role).join(", ")}
                     </span>
                   )}
                 </div>
-                <div className="font-mono text-xs text-neutral-400">
+                <div className="font-mono text-xs text-faint">
                   {r.hash.slice(0, 32)}…
                 </div>
                 {r.payload && Object.keys(r.payload).length > 0 && (
-                  <pre className="mt-1 max-w-full overflow-x-auto rounded bg-neutral-50 p-2 text-xs text-neutral-600">
+                  <pre className="mt-1 max-w-full overflow-x-auto rounded bg-ivory p-2 text-xs text-muted">
                     {JSON.stringify(r.payload, null, 1)}
                   </pre>
                 )}
@@ -654,6 +662,7 @@ export default async function WaqfDetail({
           })}
         </ol>
       </section>
-    </main>
+      </div>
+    </Shell>
   );
 }

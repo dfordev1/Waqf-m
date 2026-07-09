@@ -16,12 +16,28 @@ export async function signIn(formData: FormData) {
 
 export async function signUp(formData: FormData) {
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email: String(formData.get("email")),
     password: String(formData.get("password")),
   });
-  if (error) redirect(`/login?error=${encodeURIComponent(error.message)}`);
-  redirect("/dashboard");
+  if (error) {
+    // Friendlier copy for the most common failures.
+    const msg = /invalid/i.test(error.message) && /email/i.test(error.message)
+      ? "That doesn't look like a valid email address — please check it and try again."
+      : error.message;
+    redirect(`/login?error=${encodeURIComponent(msg)}`);
+  }
+  // Signed up AND signed in (email confirmation disabled) → straight to the app.
+  if (data.session) redirect("/dashboard");
+  // User created but no session → Supabase requires email confirmation.
+  if (data.user) {
+    redirect(
+      `/login?message=${encodeURIComponent("Check your email to confirm your account.")}`
+    );
+  }
+  redirect(
+    `/login?error=${encodeURIComponent("Sign up did not complete. Please try again.")}`
+  );
 }
 
 export async function signOut() {

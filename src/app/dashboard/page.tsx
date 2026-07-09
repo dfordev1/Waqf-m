@@ -1,6 +1,16 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { signOut } from "@/app/login/actions";
 import { createOrg, createWaqf } from "./actions";
+import Shell, {
+  PageHeader,
+  Card,
+  EmptyState,
+  Alert,
+  Field,
+  inputCls,
+  btnPrimary,
+  btnGold,
+} from "@/components/Shell";
 
 type Org = { id: string; name: string; jurisdiction: string };
 type Waqf = {
@@ -27,175 +37,170 @@ export default async function Dashboard({
     .select("*")
     .order("created_at", { ascending: false });
 
+  const orgList = (orgs ?? []) as Org[];
+  const waqfList = (waqfs ?? []) as Waqf[];
+
   return (
-    <main className="mx-auto max-w-4xl space-y-10 p-8">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Waqf‑M · Registry</h1>
-        <form action={signOut}>
-          <button className="text-sm text-neutral-500 hover:underline">
-            Sign out
-          </button>
-        </form>
-      </header>
+    <Shell variant="app" active="dashboard">
+      <PageHeader
+        eyebrow="Registry"
+        title="Dashboard"
+        subtitle="Your organizations and registered awqāf, backed by a verifiable hash chain."
+      />
 
-      {error && (
-        <p className="rounded border border-red-300 bg-red-50 p-2 text-sm text-red-700">
-          {error}
-        </p>
-      )}
+      {error && <Alert kind="error">{error}</Alert>}
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Organizations</h2>
-        {(orgs as Org[] | null)?.length ? (
-          <ul className="space-y-1 text-sm">
-            {(orgs as Org[]).map((o) => (
-              <li key={o.id} className="rounded border border-neutral-200 p-2">
-                {o.name}{" "}
-                <span className="text-neutral-400">({o.jurisdiction})</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-neutral-500">
-            No organization yet — create your waqf board or nazir organization:
-          </p>
-        )}
-        <form action={createOrg} className="flex flex-wrap gap-2">
-          <input
-            name="name"
-            required
-            placeholder="Organization name"
-            className="rounded border border-neutral-300 p-2 text-sm"
-          />
-          <select
-            name="jurisdiction"
-            className="rounded border border-neutral-300 p-2 text-sm"
-          >
-            <option value="generic">Generic</option>
-            <option value="in-umeed">India (UMEED)</option>
-            <option value="my">Malaysia (SIRC)</option>
-            <option value="id-bwi">Indonesia (BWI)</option>
-            <option value="gulf">Gulf</option>
-          </select>
-          <button className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700">
-            Create
-          </button>
-        </form>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Waqfs</h2>
-        {(waqfs as Waqf[] | null)?.length ? (
-          <table className="w-full text-left text-sm">
-            <thead className="text-neutral-500">
-              <tr>
-                <th className="p-2">Name</th>
-                <th className="p-2">Type</th>
-                <th className="p-2">Tenure</th>
-                <th className="p-2">Madhab</th>
-                <th className="p-2">Waqif</th>
-                <th className="p-2">Public</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(waqfs as Waqf[]).map((w) => (
-                <tr key={w.id} className="border-t border-neutral-200">
-                  <td className="p-2 font-medium">
-                    <a href={`/dashboard/waqf/${w.id}`} className="text-emerald-700 hover:underline">
-                      {w.name}
-                    </a>
-                  </td>
-                  <td className="p-2">{w.waqf_type}</td>
-                  <td className="p-2">{w.tenure}</td>
-                  <td className="p-2">{w.madhab}</td>
-                  <td className="p-2">{w.waqif_name}</td>
-                  <td className="p-2">{w.is_public ? "Yes" : "No"}</td>
-                </tr>
+      <div className="space-y-8">
+        <Card title="Organizations">
+          {orgList.length ? (
+            <ul className="mb-5 divide-y divide-line rounded-md border border-line">
+              {orgList.map((o) => (
+                <li key={o.id} className="flex items-center justify-between px-4 py-3 text-sm">
+                  <span className="font-medium">{o.name}</span>
+                  <span className="rounded-full border border-line bg-ivory px-2.5 py-0.5 text-xs text-muted">
+                    {o.jurisdiction}
+                  </span>
+                </li>
               ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="text-sm text-neutral-500">No waqfs registered yet.</p>
-        )}
-
-        {(orgs as Org[] | null)?.length ? (
-          <form
-            action={createWaqf}
-            className="grid grid-cols-2 gap-2 rounded border border-neutral-200 p-4 md:grid-cols-3"
-          >
-            <select
-              name="org_id"
-              required
-              className="rounded border border-neutral-300 p-2 text-sm"
-            >
-              {(orgs as Org[]).map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
-            <input
-              name="name"
-              required
-              placeholder="Waqf name"
-              className="rounded border border-neutral-300 p-2 text-sm"
-            />
-            <input
-              name="waqif_name"
-              required
-              placeholder="Waqif (founder) name"
-              className="rounded border border-neutral-300 p-2 text-sm"
-            />
-            <select
-              name="waqf_type"
-              className="rounded border border-neutral-300 p-2 text-sm"
-            >
-              <option value="khayri">Khayri (charitable)</option>
-              <option value="ahli">Ahli (family)</option>
-              <option value="mushtarak">Mushtarak (mixed)</option>
-              <option value="cash">Cash</option>
-              <option value="corporate">Corporate</option>
-            </select>
-            <select
-              name="madhab"
-              className="rounded border border-neutral-300 p-2 text-sm"
-            >
-              <option value="hanafi">Hanafi</option>
-              <option value="maliki">Maliki</option>
-              <option value="shafii">Shafi&apos;i</option>
-              <option value="hanbali">Hanbali</option>
-              <option value="jaafari">Ja&apos;fari</option>
-              <option value="other">Other</option>
-            </select>
-            <select
-              name="tenure"
-              className="rounded border border-neutral-300 p-2 text-sm"
-            >
-              <option value="perpetual">Perpetual</option>
-              <option value="temporary">Temporary</option>
-            </select>
-            <input
-              name="expires_on"
-              type="date"
-              className="rounded border border-neutral-300 p-2 text-sm"
-              title="Expiry (temporary waqf only)"
-            />
-            <input
-              name="declaration_date"
-              type="date"
-              className="rounded border border-neutral-300 p-2 text-sm"
-              title="Declaration date"
-            />
-            <label className="flex items-center gap-2 text-sm">
-              <input name="is_public" type="checkbox" defaultChecked /> Public
-              registry
-            </label>
-            <button className="col-span-full rounded bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600">
-              Register waqf
-            </button>
+            </ul>
+          ) : (
+            <div className="mb-5">
+              <EmptyState>
+                No organization yet — create your waqf board or nazir organization below.
+              </EmptyState>
+            </div>
+          )}
+          <form action={createOrg} className="flex flex-wrap items-end gap-3">
+            <Field label="Organization name" className="min-w-[220px] flex-1">
+              <input name="name" required placeholder="e.g. Al-Khayr Waqf Board" className={inputCls} />
+            </Field>
+            <Field label="Jurisdiction">
+              <select name="jurisdiction" className={inputCls}>
+                <option value="generic">Generic</option>
+                <option value="in-umeed">India (UMEED)</option>
+                <option value="my">Malaysia (SIRC)</option>
+                <option value="id-bwi">Indonesia (BWI)</option>
+                <option value="gulf">Gulf</option>
+              </select>
+            </Field>
+            <button className={btnPrimary}>Create organization</button>
           </form>
+        </Card>
+
+        <Card title={`Waqfs (${waqfList.length})`}>
+          {waqfList.length ? (
+            <div className="overflow-x-auto rounded-md border border-line">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-line bg-ivory text-xs uppercase tracking-wide text-faint">
+                  <tr>
+                    <th className="px-4 py-2.5 font-semibold">Name</th>
+                    <th className="px-4 py-2.5 font-semibold">Type</th>
+                    <th className="px-4 py-2.5 font-semibold">Tenure</th>
+                    <th className="px-4 py-2.5 font-semibold">Madhab</th>
+                    <th className="px-4 py-2.5 font-semibold">Waqif</th>
+                    <th className="px-4 py-2.5 font-semibold">Public</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {waqfList.map((w) => (
+                    <tr key={w.id} className="transition-colors hover:bg-ivory/60">
+                      <td className="px-4 py-3 font-medium">
+                        <a href={`/dashboard/waqf/${w.id}`} className="text-verify hover:underline">
+                          {w.name}
+                        </a>
+                      </td>
+                      <td className="px-4 py-3 text-muted">{w.waqf_type}</td>
+                      <td className="px-4 py-3 text-muted">{w.tenure}</td>
+                      <td className="px-4 py-3 text-muted">{w.madhab}</td>
+                      <td className="px-4 py-3 text-muted">{w.waqif_name}</td>
+                      <td className="px-4 py-3">
+                        {w.is_public ? (
+                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-verify">
+                            Public
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-ivory px-2 py-0.5 text-xs text-faint">
+                            Private
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState>No waqfs yet — register your first one below.</EmptyState>
+          )}
+        </Card>
+
+        {orgList.length ? (
+          <Card title="Register a waqf">
+            <form action={createWaqf} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <Field label="Organization">
+                <select name="org_id" required className={inputCls}>
+                  {orgList.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Waqf name">
+                <input name="name" required placeholder="e.g. Masjid Al-Noor Endowment" className={inputCls} />
+              </Field>
+              <Field label="Waqif (founder) name">
+                <input name="waqif_name" required placeholder="Founder's full name" className={inputCls} />
+              </Field>
+              <Field label="Type">
+                <select name="waqf_type" className={inputCls}>
+                  <option value="khayri">Khayri (charitable)</option>
+                  <option value="ahli">Ahli (family)</option>
+                  <option value="mushtarak">Mushtarak (mixed)</option>
+                  <option value="cash">Cash</option>
+                  <option value="corporate">Corporate</option>
+                </select>
+              </Field>
+              <Field label="Madhab">
+                <select name="madhab" className={inputCls}>
+                  <option value="hanafi">Hanafi</option>
+                  <option value="maliki">Maliki</option>
+                  <option value="shafii">Shafi&apos;i</option>
+                  <option value="hanbali">Hanbali</option>
+                  <option value="jaafari">Ja&apos;fari</option>
+                  <option value="other">Other</option>
+                </select>
+              </Field>
+              <Field label="Tenure">
+                <select name="tenure" className={inputCls}>
+                  <option value="perpetual">Perpetual</option>
+                  <option value="temporary">Temporary</option>
+                </select>
+              </Field>
+              <Field label="Expiry (temporary waqf only)">
+                <input name="expires_on" type="date" className={inputCls} />
+              </Field>
+              <Field label="Declaration date">
+                <input name="declaration_date" type="date" className={inputCls} />
+              </Field>
+              <label className="flex items-center gap-2 self-end pb-2 text-sm">
+                <input name="is_public" type="checkbox" defaultChecked className="h-4 w-4 accent-gold" />
+                List in the public registry
+              </label>
+              <div className="col-span-full">
+                <button className={btnGold}>Register waqf</button>
+              </div>
+            </form>
+          </Card>
         ) : null}
-      </section>
-    </main>
+
+        <p className="text-center text-xs text-faint">
+          Every registration writes a chained, signable event.{" "}
+          <Link href="/explorer" className="underline decoration-line2 underline-offset-4 hover:text-ink">
+            View the public explorer
+          </Link>
+        </p>
+      </div>
+    </Shell>
   );
 }
