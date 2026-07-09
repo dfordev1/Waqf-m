@@ -64,6 +64,9 @@ export default async function Explorer() {
                   <Link className="text-emerald-700 hover:underline" href={`/api/waqf/${w.id}/verify`}>
                     verify chain
                   </Link>
+                  <Link className="text-emerald-700 hover:underline" href={`/api/waqf/${w.id}/proof`}>
+                    merkle proof
+                  </Link>
                   <span className="text-neutral-400">id: {w.id}</span>
                 </div>
               </li>
